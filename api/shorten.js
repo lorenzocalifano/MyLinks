@@ -1,39 +1,30 @@
 const express = require('express');
 const QRCode = require('qrcode');
-const sqlite3 = require('sqlite3').verbose();
+const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-app.use(express.json());
 
-const db = new sqlite3.Database('./mylinks.db');
-
-// Creazione tabella se non esiste
-db.run(`CREATE TABLE IF NOT EXISTS links (
-  id TEXT PRIMARY KEY,
-  original_url TEXT,
-  short_code TEXT,
-  short_clicks INTEGER DEFAULT 0,
-  qr_scans INTEGER DEFAULT 0
-)`);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 app.post('/api/shorten', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "URL mancante" });
 
-  const code = uuidv4().slice(0,6); // short code
-  const id = uuidv4();
+  const code = uuidv4().slice(0,6);
 
-  db.run(
-    `INSERT INTO links (id, original_url, short_code) VALUES (?, ?, ?)`,
-    [id, url, code]
-  );
+  // inserisci nel DB
+  const { data, error } = await supabase
+    .from('links')
+    .insert([{ original_url: url, short_code: code, short_clicks: 0, qr_scans: 0 }]);
 
-  const qrData = await QRCode.toDataURL(`https://mylinks.vercel.app/api/s/${code}`);
+  if (error) return res.status(500).json({ error: error.message });
+
+  const qrData = await QRCode.toDataURL(`https://${process.env.VERCEL_URL}/api/s/${code}`);
 
   res.json({
     original_url: url,
-    short_url: `https://mylinks.vercel.app/api/s/${code}`,
+    short_url: `https://${process.env.VERCEL_URL}/api/s/${code}`,
     qr_url: qrData
   });
 });

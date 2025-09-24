@@ -6,9 +6,9 @@ const stats = require('./api/stats');
 const app = express();
 app.use(express.json());
 
-// monta tutte le rotte
-app.use(shorten);
-app.use(redirect);
-app.use(stats);
+// tutte le rotte da api/
+app.use('/api', shorten);
+app.use('/api', redirect);
+app.use('/api', stats);
 
 module.exports = app;

@@ -1,19 +1,27 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { createClient } = require('@supabase/supabase-js');
 const app = express();
 
-const db = new sqlite3.Database('./mylinks.db');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-app.get('/api/s/:code', (req, res) => {
+app.get('/api/s/:code', async (req, res) => {
   const code = req.params.code;
-  db.get(`SELECT * FROM links WHERE short_code = ?`, [code], (err, row) => {
-    if (err || !row) return res.status(404).send("Link non trovato");
 
-    // increment click
-    db.run(`UPDATE links SET short_clicks = short_clicks + 1 WHERE short_code = ?`, [code]);
+  const { data, error } = await supabase
+    .from('links')
+    .select('*')
+    .eq('short_code', code)
+    .single();
 
-    res.redirect(row.original_url);
-  });
+  if (error || !data) return res.status(404).send("Link non trovato");
+
+  // increment click
+  await supabase
+    .from('links')
+    .update({ short_clicks: data.short_clicks + 1 })
+    .eq('short_code', code);
+
+  res.redirect(data.original_url);
 });
 
 module.exports = app;
